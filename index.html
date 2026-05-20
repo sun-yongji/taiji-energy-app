@@ -1,0 +1,1089 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>太极场生命能量模型</title>
+    <link href="https://fonts.googleapis.cn/css2?family=Noto+Serif+SC:wght@200;400;700;900&family=ZCOOL+KuaiLe&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --bg-card: rgba(18, 18, 28, 0.85);
+            --fg: #e8e4d9;
+            --fg-muted: #8a8578;
+            --accent-yang: #d4a24e;
+            --accent-yin: #3d8b6e;
+            --accent-warm: #c75c2e;
+            --border: rgba(212, 162, 78, 0.15);
+            --glow-yang: rgba(212, 162, 78, 0.4);
+            --glow-yin: rgba(61, 139, 110, 0.4);
+            --radius: 12px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Noto Serif SC', serif;
+            background: var(--bg);
+            color: var(--fg);
+            min-height: 100vh;
+            overflow-x: hidden;
+            line-height: 1.7;
+        }
+
+        /* 背景氛围层 */
+        .atmosphere {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            overflow: hidden;
+        }
+        .atmosphere::before {
+            content: '';
+            position: absolute;
+            top: -30%;
+            left: -20%;
+            width: 70vw;
+            height: 70vw;
+            background: radial-gradient(circle, rgba(212,162,78,0.06) 0%, transparent 70%);
+            animation: floatBlob 20s ease-in-out infinite;
+        }
+        .atmosphere::after {
+            content: '';
+            position: absolute;
+            bottom: -20%;
+            right: -15%;
+            width: 60vw;
+            height: 60vw;
+            background: radial-gradient(circle, rgba(61,139,110,0.05) 0%, transparent 70%);
+            animation: floatBlob 25s ease-in-out infinite reverse;
+        }
+        @keyframes floatBlob {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(5vw, -3vw) scale(1.1); }
+            66% { transform: translate(-3vw, 4vw) scale(0.95); }
+        }
+
+        /* 参赛标识 */
+        .entry-badge {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            z-index: 100;
+            background: linear-gradient(135deg, var(--accent-warm), #e87040);
+            color: #fff;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            box-shadow: 0 2px 12px rgba(199,92,46,0.3);
+            animation: badgePulse 3s ease-in-out infinite;
+        }
+        @keyframes badgePulse {
+            0%, 100% { box-shadow: 0 2px 12px rgba(199,92,46,0.3); }
+            50% { box-shadow: 0 2px 20px rgba(199,92,46,0.5); }
+        }
+
+        /* 主布局 */
+        .app-container {
+            position: relative;
+            z-index: 1;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* 头部 */
+        header {
+            text-align: center;
+            padding: 60px 20px 40px;
+        }
+        header h1 {
+            font-size: clamp(2.2rem, 5vw, 3.8rem);
+            font-weight: 900;
+            background: linear-gradient(135deg, var(--accent-yang), var(--fg), var(--accent-yin));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 12px;
+            letter-spacing: 4px;
+        }
+        header .subtitle {
+            font-size: clamp(0.9rem, 2vw, 1.15rem);
+            color: var(--fg-muted);
+            font-weight: 200;
+            letter-spacing: 2px;
+        }
+
+        /* 太极画布区域 */
+        .taichi-stage {
+            position: relative;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px 0 40px;
+        }
+        #taichiCanvas {
+            border-radius: 50%;
+            filter: drop-shadow(0 0 30px var(--glow-yang)) drop-shadow(0 0 30px var(--glow-yin));
+            transition: filter 0.8s ease;
+        }
+
+        /* 能量指标环 */
+        .energy-ring {
+            position: absolute;
+            border-radius: 50%;
+            border: 1px solid var(--border);
+            pointer-events: none;
+            animation: ringPulse 4s ease-in-out infinite;
+        }
+        .energy-ring:nth-child(2) { animation-delay: -1.3s; }
+        .energy-ring:nth-child(3) { animation-delay: -2.6s; }
+        @keyframes ringPulse {
+            0%, 100% { opacity: 0.3; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.02); }
+        }
+
+        /* 主内容网格 */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 40px;
+        }
+        @media (max-width: 768px) {
+            .main-grid { grid-template-columns: 1fr; }
+        }
+
+        /* 卡片 */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 28px;
+            backdrop-filter: blur(12px);
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+        .card:hover {
+            border-color: rgba(212,162,78,0.3);
+            box-shadow: 0 4px 30px rgba(212,162,78,0.08);
+        }
+        .card h2 {
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+            color: var(--accent-yang);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .card h2 i { font-size: 1.1rem; }
+
+        /* 滑块组 */
+        .slider-group {
+            margin-bottom: 18px;
+        }
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+        .slider-label .name {
+            color: var(--fg);
+            font-weight: 400;
+        }
+        .slider-label .value {
+            color: var(--accent-yang);
+            font-weight: 700;
+            font-size: 0.85rem;
+            min-width: 36px;
+            text-align: right;
+        }
+        .slider-label .tag {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-weight: 700;
+            margin-left: 8px;
+        }
+        .tag-yang {
+            background: rgba(212,162,78,0.15);
+            color: var(--accent-yang);
+        }
+        .tag-yin {
+            background: rgba(61,139,110,0.15);
+            color: var(--accent-yin);
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(255,255,255,0.08);
+            outline: none;
+            cursor: pointer;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--accent-yang);
+            box-shadow: 0 0 8px var(--glow-yang);
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+        input[type="range"].yin-slider::-webkit-slider-thumb {
+            background: var(--accent-yin);
+            box-shadow: 0 0 8px var(--glow-yin);
+        }
+
+        /* 能量结果面板 */
+        .result-panel {
+            text-align: center;
+        }
+        .energy-score {
+            font-size: clamp(3rem, 8vw, 5rem);
+            font-weight: 900;
+            line-height: 1;
+            margin: 20px 0 8px;
+            transition: color 0.5s;
+        }
+        .energy-level {
+            font-size: 1.1rem;
+            font-weight: 200;
+            color: var(--fg-muted);
+            margin-bottom: 24px;
+            letter-spacing: 2px;
+        }
+
+        /* 阴阳条 */
+        .balance-bar {
+            display: flex;
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 16px 0;
+            background: rgba(255,255,255,0.05);
+        }
+        .balance-yang {
+            background: linear-gradient(90deg, var(--accent-yang), #e8c060);
+            transition: width 0.6s ease;
+            border-radius: 4px 0 0 4px;
+        }
+        .balance-yin {
+            background: linear-gradient(90deg, #2d7058, var(--accent-yin));
+            transition: width 0.6s ease;
+            border-radius: 0 4px 4px 0;
+        }
+        .balance-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            color: var(--fg-muted);
+        }
+
+        /* 维度雷达图 */
+        #radarCanvas {
+            display: block;
+            margin: 20px auto 0;
+        }
+
+        /* 建议卡片 */
+        .advice-list {
+            list-style: none;
+            margin-top: 16px;
+        }
+        .advice-list li {
+            padding: 10px 14px;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            font-size: 0.88rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            line-height: 1.5;
+            background: rgba(255,255,255,0.03);
+            border-left: 3px solid var(--accent-yang);
+            transition: background 0.3s;
+        }
+        .advice-list li:hover {
+            background: rgba(255,255,255,0.06);
+        }
+        .advice-list li.yin-advice {
+            border-left-color: var(--accent-yin);
+        }
+        .advice-list li i {
+            margin-top: 3px;
+            font-size: 0.8rem;
+        }
+
+        /* 底部社区卡片 */
+        .community-card {
+            text-align: center;
+            padding: 40px 28px;
+        }
+        .community-card p {
+            color: var(--fg-muted);
+            margin-bottom: 20px;
+            font-size: 0.95rem;
+        }
+        .btn-primary {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 28px;
+            background: linear-gradient(135deg, var(--accent-yang), var(--accent-warm));
+            color: #fff;
+            border: none;
+            border-radius: 24px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            cursor: pointer;
+            text-decoration: none;
+            transition: transform 0.2s, box-shadow 0.3s;
+            font-family: inherit;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 24px rgba(212,162,78,0.3);
+        }
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        /* Toast 通知 */
+        .toast-container {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 200;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .toast {
+            padding: 12px 20px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 0.85rem;
+            color: var(--fg);
+            backdrop-filter: blur(12px);
+            animation: toastIn 0.3s ease, toastOut 0.3s ease 2.7s forwards;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateX(40px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes toastOut {
+            from { opacity: 1; transform: translateX(0); }
+            to { opacity: 0; transform: translateX(40px); }
+        }
+
+        /* 粒子画布 */
+        #particleCanvas {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* 时间线动画 */
+        .timeline-section {
+            margin-bottom: 40px;
+        }
+        .timeline-section h2 {
+            text-align: center;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--accent-yang);
+            margin-bottom: 30px;
+        }
+        .timeline {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            height: 120px;
+            padding: 0 10px;
+            gap: 4px;
+        }
+        .timeline-bar {
+            flex: 1;
+            border-radius: 4px 4px 0 0;
+            min-height: 8px;
+            transition: height 0.6s ease, background 0.3s;
+            cursor: pointer;
+            position: relative;
+        }
+        .timeline-bar:hover {
+            filter: brightness(1.3);
+        }
+        .timeline-bar .bar-tooltip {
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+        }
+        .timeline-bar:hover .bar-tooltip {
+            opacity: 1;
+        }
+        .timeline-labels {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 10px 0;
+            font-size: 0.65rem;
+            color: var(--fg-muted);
+        }
+        .timeline-labels span {
+            flex: 1;
+            text-align: center;
+        }
+
+        /* 响应式 */
+        @media (max-width: 480px) {
+            .app-container { padding: 12px; }
+            .card { padding: 20px; }
+            header { padding: 40px 12px 24px; }
+        }
+
+        /* 减少动画偏好 */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
+        /* 滚动条 */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(212,162,78,0.2); border-radius: 3px; }
+    </style>
+</head>
+<body>
+
+<div class="atmosphere"></div>
+<canvas id="particleCanvas"></canvas>
+
+<div class="entry-badge">知乎流量激励计划参赛项目</div>
+
+<div class="app-container">
+
+    <header>
+        <h1>太极场生命能量模型</h1>
+        <p class="subtitle">阴阳调和 · 气机流转 · 生命自观</p>
+    </header>
+
+    <!-- 太极动画舞台 -->
+    <section class="taichi-stage" aria-label="太极能量场动画">
+        <canvas id="taichiCanvas" width="280" height="280"></canvas>
+    </section>
+
+    <!-- 主内容双栏 -->
+    <div class="main-grid">
+
+        <!-- 左栏：能量输入 -->
+        <div class="card" id="inputCard">
+            <h2><i class="fas fa-sliders-h"></i> 生命能量维度</h2>
+
+            <div class="slider-group">
+                <div class="slider-label">
+                    <span class="name">睡眠质量 <span class="tag tag-yin">阴</span></span>
+                    <span class="value" id="sleepVal">70</span>
+                </div>
+                <input type="range" class="yin-slider" id="sleep" min="0" max="100" value="70" aria-label="睡眠质量">
+            </div>
+
+            <div class="slider-group">
+                <div class="slider-label">
+                    <span class="name">运动活力 <span class="tag tag-yang">阳</span></span>
+                    <span class="value" id="exerciseVal">60</span>
+                </div>
+                <input type="range" id="exercise" min="0" max="100" value="60" aria-label="运动活力">
+            </div>
+
+            <div class="slider-group">
+                <div class="slider-label">
+                    <span class="name">情绪稳定 <span class="tag tag-yin">阴</span></span>
+                    <span class="value" id="emotionVal">55</span>
+                </div>
+                <input type="range" class="yin-slider" id="emotion" min="0" max="100" value="55" aria-label="情绪稳定">
+            </div>
+
+            <div class="slider-group">
+                <div class="slider-label">
+                    <span class="name">饮食均衡 <span class="tag tag-yin">阴</span></span>
+                    <span class="value" id="dietVal">65</span>
+                </div>
+                <input type="range" class="yin-slider" id="diet" min="0" max="100" value="65" aria-label="饮食均衡">
+            </div>
+
+            <div class="slider-group">
+                <div class="slider-label">
+                    <span class="name">社交连接 <span class="tag tag-yang">阳</span></span>
+                    <span class="value" id="socialVal">50</span>
+                </div>
+                <input type="range" id="social" min="0" max="100" value="50" aria-label="社交连接">
+            </div>
+
+            <div class="slider-group">
+                <div class="slider-label">
+                    <span class="name">精神修养 <span class="tag tag-yin">阴</span></span>
+                    <span class="value" id="spiritVal">45</span>
+                </div>
+                <input type="range" class="yin-slider" id="spirit" min="0" max="100" value="45" aria-label="精神修养">
+            </div>
+
+            <div class="slider-group">
+                <div class="slider-label">
+                    <span class="name">创造表达 <span class="tag tag-yang">阳</span></span>
+                    <span class="value" id="creativeVal">40</span>
+                </div>
+                <input type="range" id="creative" min="0" max="100" value="40" aria-label="创造表达">
+            </div>
+
+            <div class="slider-group">
+                <div class="slider-label">
+                    <span class="name">自然接触 <span class="tag tag-yang">阳</span></span>
+                    <span class="value" id="natureVal">35</span>
+                </div>
+                <input type="range" id="nature" min="0" max="100" value="35" aria-label="自然接触">
+            </div>
+        </div>
+
+        <!-- 右栏：能量结果 -->
+        <div class="card result-panel" id="resultCard">
+            <h2><i class="fas fa-yin-yang"></i> 能量场读数</h2>
+
+            <div class="energy-score" id="energyScore">--</div>
+            <div class="energy-level" id="energyLevel">调整维度以观测能量</div>
+
+            <div class="balance-bar">
+                <div class="balance-yang" id="yangBar" style="width:50%"></div>
+                <div class="balance-yin" id="yinBar" style="width:50%"></div>
+            </div>
+            <div class="balance-labels">
+                <span><i class="fas fa-sun" style="color:var(--accent-yang)"></i> 阳能量 <strong id="yangPercent">50%</strong></span>
+                <span><i class="fas fa-moon" style="color:var(--accent-yin)"></i> 阴能量 <strong id="yinPercent">50%</strong></span>
+            </div>
+
+            <canvas id="radarCanvas" width="260" height="260" aria-label="能量维度雷达图"></canvas>
+        </div>
+
+    </div>
+
+    <!-- 七日能量时间线 -->
+    <section class="timeline-section card">
+        <h2><i class="fas fa-chart-bar"></i> 七日能量流转</h2>
+        <div class="timeline" id="timeline"></div>
+        <div class="timeline-labels" id="timelineLabels"></div>
+    </section>
+
+    <!-- 调养建议 -->
+    <section class="card" id="adviceCard" style="margin-bottom:24px;">
+        <h2><i class="fas fa-leaf"></i> 调养建议</h2>
+        <ul class="advice-list" id="adviceList"></ul>
+    </section>
+
+    <!-- 社区共建 -->
+    <section class="card community-card">
+        <h2><i class="fas fa-users"></i> 参与知乎社区共建</h2>
+        <p>分享你的生命能量故事，与万千行者共修共进</p>
+        <a href="https://www.zhihu.com/topic/25733" target="_blank" rel="noopener noreferrer" class="btn-primary" role="button">
+            <i class="fas fa-external-link-alt"></i> 前往知乎话题
+        </a>
+    </section>
+
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+/* ============================================
+   太极场生命能量模型 - 核心逻辑
+   ============================================ */
+
+// ---- 维度配置 ----
+const DIMENSIONS = [
+    { id: 'sleep',    name: '睡眠质量', type: 'yin',  weight: 1.2 },
+    { id: 'exercise', name: '运动活力', type: 'yang', weight: 1.0 },
+    { id: 'emotion',  name: '情绪稳定', type: 'yin',  weight: 1.3 },
+    { id: 'diet',     name: '饮食均衡', type: 'yin',  weight: 1.0 },
+    { id: 'social',   name: '社交连接', type: 'yang', weight: 0.9 },
+    { id: 'spirit',   name: '精神修养', type: 'yin',  weight: 1.1 },
+    { id: 'creative', name: '创造表达', type: 'yang', weight: 1.0 },
+    { id: 'nature',   name: '自然接触', type: 'yang', weight: 0.8 }
+];
+
+// ---- 获取当前值 ----
+function getValues() {
+    return DIMENSIONS.map(d => {
+        const el = document.getElementById(d.id);
+        return { ...d, value: parseInt(el.value) };
+    });
+}
+
+// ---- 计算能量 ----
+function calcEnergy(vals) {
+    let yangSum = 0, yinSum = 0, yangW = 0, yinW = 0;
+    vals.forEach(d => {
+        const w = d.weight;
+        if (d.type === 'yang') { yangSum += d.value * w; yangW += w; }
+        else { yinSum += d.value * w; yinW += w; }
+    });
+    const yangAvg = yangW > 0 ? yangSum / yangW : 0;
+    const yinAvg = yinW > 0 ? yinSum / yinW : 0;
+    const total = (yangSum + yinSum) / (yangW + yinW);
+    // 平衡度：阴阳越接近，平衡越高
+    const balance = 1 - Math.abs(yangAvg - yinAvg) / 100;
+    // 综合能量 = 总分 * 平衡系数
+    const score = Math.round(total * (0.6 + 0.4 * balance));
+    return { score, yangAvg: Math.round(yangAvg), yinAvg: Math.round(yinAvg), balance, total: Math.round(total) };
+}
+
+// ---- 能量等级 ----
+function getLevel(score) {
+    if (score >= 85) return { text: '气满神旺', color: '#d4a24e' };
+    if (score >= 70) return { text: '阴阳和合', color: '#3d8b6e' };
+    if (score >= 55) return { text: '气机初动', color: '#8a8578' };
+    if (score >= 40) return { text: '阴阳失衡', color: '#c75c2e' };
+    return { text: '气虚待养', color: '#a03030' };
+}
+
+// ---- 更新UI ----
+function updateAll() {
+    const vals = getValues();
+    const energy = calcEnergy(vals);
+    const level = getLevel(energy.score);
+
+    // 分数
+    const scoreEl = document.getElementById('energyScore');
+    scoreEl.textContent = energy.score;
+    scoreEl.style.color = level.color;
+
+    // 等级
+    document.getElementById('energyLevel').textContent = level.text;
+
+    // 阴阳条
+    const yangP = Math.round(energy.yangAvg / (energy.yangAvg + energy.yinAvg) * 100) || 50;
+    const yinP = 100 - yangP;
+    document.getElementById('yangBar').style.width = yangP + '%';
+    document.getElementById('yinBar').style.width = yinP + '%';
+    document.getElementById('yangPercent').textContent = yangP + '%';
+    document.getElementById('yinPercent').textContent = yinP + '%';
+
+    // 滑块数值显示
+    vals.forEach(d => {
+        document.getElementById(d.id + 'Val').textContent = d.value;
+    });
+
+    // 雷达图
+    drawRadar(vals);
+
+    // 太极动画参数
+    taichiYangTarget = energy.yangAvg / 100;
+    taichiYinTarget = energy.yinAvg / 100;
+    taichiSpeedTarget = 0.3 + (energy.score / 100) * 1.2;
+
+    // 调养建议
+    generateAdvice(vals, energy);
+
+    // 粒子颜色
+    particleYangRatio = yangP / 100;
+}
+
+// ---- 雷达图 ----
+function drawRadar(vals) {
+    const canvas = document.getElementById('radarCanvas');
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    const cx = w / 2, cy = h / 2;
+    const r = Math.min(w, h) / 2 - 30;
+    const n = vals.length;
+
+    ctx.clearRect(0, 0, w, h);
+
+    // 背景网格
+    for (let ring = 1; ring <= 4; ring++) {
+        const rr = r * ring / 4;
+        ctx.beginPath();
+        for (let i = 0; i <= n; i++) {
+            const angle = (Math.PI * 2 * i / n) - Math.PI / 2;
+            const x = cx + rr * Math.cos(angle);
+            const y = cy + rr * Math.sin(angle);
+            i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+    }
+
+    // 轴线
+    for (let i = 0; i < n; i++) {
+        const angle = (Math.PI * 2 * i / n) - Math.PI / 2;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(cx + r * Math.cos(angle), cy + r * Math.sin(angle));
+        ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+        ctx.stroke();
+    }
+
+    // 数据区域
+    ctx.beginPath();
+    vals.forEach((d, i) => {
+        const angle = (Math.PI * 2 * i / n) - Math.PI / 2;
+        const dr = r * d.value / 100;
+        const x = cx + dr * Math.cos(angle);
+        const y = cy + dr * Math.sin(angle);
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.closePath();
+    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+    grad.addColorStop(0, 'rgba(212,162,78,0.25)');
+    grad.addColorStop(1, 'rgba(61,139,110,0.15)');
+    ctx.fillStyle = grad;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(212,162,78,0.6)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // 数据点
+    vals.forEach((d, i) => {
+        const angle = (Math.PI * 2 * i / n) - Math.PI / 2;
+        const dr = r * d.value / 100;
+        const x = cx + dr * Math.cos(angle);
+        const y = cy + dr * Math.sin(angle);
+        ctx.beginPath();
+        ctx.arc(x, y, 3, 0, Math.PI * 2);
+        ctx.fillStyle = d.type === 'yang' ? '#d4a24e' : '#3d8b6e';
+        ctx.fill();
+    });
+
+    // 标签
+    ctx.font = '11px "Noto Serif SC", serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    vals.forEach((d, i) => {
+        const angle = (Math.PI * 2 * i / n) - Math.PI / 2;
+        const lx = cx + (r + 20) * Math.cos(angle);
+        const ly = cy + (r + 20) * Math.sin(angle);
+        ctx.fillStyle = d.type === 'yang' ? '#d4a24e' : '#3d8b6e';
+        ctx.fillText(d.name, lx, ly);
+    });
+}
+
+// ---- 太极图动画 ----
+let taichiAngle = 0;
+let taichiYangTarget = 0.5;
+let taichiYinTarget = 0.5;
+let taichiSpeedTarget = 0.8;
+let taichiYangCurrent = 0.5;
+let taichiYinCurrent = 0.5;
+let taichiSpeedCurrent = 0.8;
+
+function drawTaichi(time) {
+    const canvas = document.getElementById('taichiCanvas');
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    const cx = w / 2, cy = h / 2;
+    const R = Math.min(w, h) / 2 - 4;
+
+    // 平滑过渡
+    taichiYangCurrent += (taichiYangTarget - taichiYangCurrent) * 0.03;
+    taichiYinCurrent += (taichiYinTarget - taichiYinCurrent) * 0.03;
+    taichiSpeedCurrent += (taichiSpeedTarget - taichiSpeedCurrent) * 0.03;
+
+    taichiAngle += taichiSpeedCurrent * 0.01;
+
+    ctx.clearRect(0, 0, w, h);
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(taichiAngle);
+
+    // 阳鱼（金色）
+    const yangColor = `rgba(212,162,78,${0.5 + taichiYangCurrent * 0.5})`;
+    const yinColor = `rgba(30,60,50,${0.5 + taichiYinCurrent * 0.5})`;
+
+    // 左半圆 - 阳
+    ctx.beginPath();
+    ctx.arc(0, 0, R, Math.PI / 2, -Math.PI / 2, false);
+    ctx.fillStyle = yangColor;
+    ctx.fill();
+
+    // 右半圆 - 阴
+    ctx.beginPath();
+    ctx.arc(0, 0, R, -Math.PI / 2, Math.PI / 2, false);
+    ctx.fillStyle = yinColor;
+    ctx.fill();
+
+    // 上小半圆 - 阳
+    ctx.beginPath();
+    ctx.arc(0, -R / 2, R / 2, -Math.PI / 2, Math.PI / 2, false);
+    ctx.fillStyle = yangColor;
+    ctx.fill();
+
+    // 下小半圆 - 阴
+    ctx.beginPath();
+    ctx.arc(0, R / 2, R / 2, Math.PI / 2, -Math.PI / 2, false);
+    ctx.fillStyle = yinColor;
+    ctx.fill();
+
+    // 阳鱼眼
+    ctx.beginPath();
+    ctx.arc(0, -R / 2, R / 8, 0, Math.PI * 2);
+    ctx.fillStyle = yinColor;
+    ctx.fill();
+
+    // 阴鱼眼
+    ctx.beginPath();
+    ctx.arc(0, R / 2, R / 8, 0, Math.PI * 2);
+    ctx.fillStyle = yangColor;
+    ctx.fill();
+
+    ctx.restore();
+
+    // 外圈光晕
+    const glowIntensity = 0.15 + taichiYangCurrent * 0.2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, R + 2, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(212,162,78,${glowIntensity})`;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // 能量波纹
+    const waveCount = 3;
+    for (let i = 0; i < waveCount; i++) {
+        const phase = (time * 0.001 * taichiSpeedCurrent + i * Math.PI * 2 / waveCount) % (Math.PI * 2);
+        const waveR = R + 10 + Math.sin(phase) * 15 + i * 12;
+        const alpha = Math.max(0, 0.12 - i * 0.04) * (0.5 + taichiYangCurrent);
+        ctx.beginPath();
+        ctx.arc(cx, cy, Math.max(1, waveR), 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(212,162,78,${alpha})`;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+    }
+}
+
+// ---- 粒子系统 ----
+let particleYangRatio = 0.5;
+const particles = [];
+const PARTICLE_COUNT = 60;
+
+function initParticles() {
+    const canvas = document.getElementById('particleCanvas');
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+        particles.push({
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height,
+            vx: (Math.random() - 0.5) * 0.4,
+            vy: (Math.random() - 0.5) * 0.4,
+            size: Math.random() * 2 + 0.5,
+            alpha: Math.random() * 0.3 + 0.05,
+            type: Math.random() > 0.5 ? 'yang' : 'yin'
+        });
+    }
+}
+
+function drawParticles() {
+    const canvas = document.getElementById('particleCanvas');
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    particles.forEach(p => {
+        p.x += p.vx;
+        p.y += p.vy;
+
+        // 边界回绕
+        if (p.x < 0) p.x = canvas.width;
+        if (p.x > canvas.width) p.x = 0;
+        if (p.y < 0) p.y = canvas.height;
+        if (p.y > canvas.height) p.y = 0;
+
+        const isYang = p.type === 'yang';
+        const ratio = isYang ? particleYangRatio : (1 - particleYangRatio);
+        const baseAlpha = p.alpha * (0.5 + ratio);
+
+        let color;
+        if (isYang) {
+            color = `rgba(212,162,78,${baseAlpha})`;
+        } else {
+            color = `rgba(61,139,110,${baseAlpha})`;
+        }
+
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, Math.max(0.5, p.size), 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+    });
+}
+
+// ---- 七日时间线 ----
+function generateTimeline() {
+    const container = document.getElementById('timeline');
+    const labels = document.getElementById('timelineLabels');
+    container.innerHTML = '';
+    labels.innerHTML = '';
+
+    const days = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+    const now = new Date();
+    const startDay = now.getDay();
+
+    days.forEach((day, i) => {
+        // 模拟历史数据 + 当前值
+        const isToday = i === (startDay === 0 ? 6 : startDay - 1);
+        let score;
+        if (isToday) {
+            const vals = getValues();
+            score = calcEnergy(vals).score;
+        } else {
+            // 用种子生成伪随机历史数据
+            score = 40 + Math.floor(Math.sin(i * 2.7 + 1.3) * 20 + 20);
+        }
+
+        const height = Math.max(8, score * 1.1);
+        const bar = document.createElement('div');
+        bar.className = 'timeline-bar';
+        bar.style.height = height + 'px';
+
+        // 颜色根据分数
+        if (score >= 70) bar.style.background = 'linear-gradient(to top, rgba(61,139,110,0.6), rgba(212,162,78,0.8))';
+        else if (score >= 50) bar.style.background = 'linear-gradient(to top, rgba(61,139,110,0.4), rgba(212,162,78,0.5))';
+        else bar.style.background = 'linear-gradient(to top, rgba(199,92,46,0.4), rgba(212,162,78,0.3))';
+
+        if (isToday) {
+            bar.style.boxShadow = '0 0 12px rgba(212,162,78,0.3)';
+            bar.style.borderBottom = '2px solid #d4a24e';
+        }
+
+        const tooltip = document.createElement('div');
+        tooltip.className = 'bar-tooltip';
+        tooltip.textContent = day + ': ' + score + '分';
+        bar.appendChild(tooltip);
+
+        container.appendChild(bar);
+
+        const label = document.createElement('span');
+        label.textContent = day;
+        if (isToday) label.style.color = '#d4a24e';
+        labels.appendChild(label);
+    });
+}
+
+// ---- 调养建议 ----
+function generateAdvice(vals, energy) {
+    const list = document.getElementById('adviceList');
+    list.innerHTML = '';
+
+    // 找出最弱的维度
+    const sorted = [...vals].sort((a, b) => a.value - b.value);
+    const weak = sorted.slice(0, 3);
+
+    const adviceMap = {
+        sleep:   { text: '早卧早起，与日俱兴。建议22:30前入眠，保证7-8小时深睡周期。', icon: 'fa-moon' },
+        exercise:{ text: '动则生阳。每日行步6000步以上，或习太极、八段锦以助阳气升发。', icon: 'fa-running' },
+        emotion: { text: '恬淡虚无，真气从之。可习静坐观息法，每日15分钟，安定神志。', icon: 'fa-heart' },
+        diet:    { text: '五谷为养，五果为助。饮食宜温热、少油腻，辰时进食最合胃气。', icon: 'fa-utensils' },
+        social:  { text: '人以群分，气以类聚。每周至少一次深度社交，与正念之人共处。', icon: 'fa-user-friends' },
+        spirit:  { text: '精神内守，病安从来。可读经典、习书法、听古琴，涵养心性。', icon: 'fa-book' },
+        creative:{ text: '创造乃阳气之舒发。每日留出30分钟自由创作时间，不拘形式。', icon: 'fa-palette' },
+        nature:  { text: '天地之气通于山林。每周至少两次亲近自然，接地气、纳清气。', icon: 'fa-tree' }
+    };
+
+    weak.forEach(d => {
+        const advice = adviceMap[d.id];
+        const li = document.createElement('li');
+        li.className = d.type === 'yin' ? 'yin-advice' : '';
+        li.innerHTML = `<i class="fas ${advice.icon}" style="color:${d.type === 'yang' ? 'var(--accent-yang)' : 'var(--accent-yin)'}"></i><span><strong>${d.name}</strong>（当前${d.value}分）：${advice.text}</span>`;
+        list.appendChild(li);
+    });
+
+    // 平衡建议
+    if (energy.balance < 0.7) {
+        const li = document.createElement('li');
+        li.className = 'yin-advice';
+        const direction = energy.yangAvg > energy.yinAvg ? '阳盛阴弱，宜静养以收阳' : '阴盛阳弱，宜运动以发阳';
+        li.innerHTML = `<i class="fas fa-yin-yang" style="color:var(--accent-yin)"></i><span><strong>阴阳偏颇</strong>（平衡度${Math.round(energy.balance * 100)}%）：${direction}，使阴阳归平。</span>`;
+        list.appendChild(li);
+    }
+}
+
+// ---- Toast ----
+function showToast(msg) {
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.textContent = msg;
+    container.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+}
+
+// ---- 事件绑定 ----
+function bindSliders() {
+    DIMENSIONS.forEach(d => {
+        const el = document.getElementById(d.id);
+        el.addEventListener('input', () => {
+            updateAll();
+            generateTimeline();
+        });
+    });
+}
+
+// ---- 窗口大小适配 ----
+function resizeParticleCanvas() {
+    const canvas = document.getElementById('particleCanvas');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+
+// ---- 主动画循环 ----
+function animate(time) {
+    drawTaichi(time);
+    drawParticles();
+    requestAnimationFrame(animate);
+}
+
+// ---- 初始化 ----
+function init() {
+    resizeParticleCanvas();
+    window.addEventListener('resize', resizeParticleCanvas);
+
+    initParticles();
+    bindSliders();
+    updateAll();
+    generateTimeline();
+
+    // 启动动画
+    requestAnimationFrame(animate);
+
+    // 欢迎提示
+    setTimeout(() => showToast('调整左侧维度滑块，观测你的生命能量场'), 800);
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+
+</body>
+</html>
