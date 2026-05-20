@@ -5,7 +5,7 @@
 
 ## 在线体验 | Live Demo
 
-> GitHub Pages 部署后更新此链接 | Update this link after GitHub Pages deployment
+> https://sunyunji.github.io/taiji-energy-app/
 
 ## 项目简介
 
@@ -52,3 +52,4 @@ Simply open index.html in a browser. No server required.
 ## 许可证
 
 MIT License
+
