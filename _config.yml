@@ -1,3 +1,1 @@
-site: sun-yongji/taiji-energy-app
-baseurl: /taiji-energy-app
-title: 太极场生命能量模型
+theme: jekyll-theme-minimal
