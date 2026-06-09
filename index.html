@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -131,6 +131,8 @@
             border-radius: 50%;
             filter: drop-shadow(0 0 30px var(--glow-yang)) drop-shadow(0 0 30px var(--glow-yin));
             transition: filter 0.8s ease;
+            max-width: 100%;
+            height: auto;
         }
 
         /* 能量指标环 */
@@ -296,9 +298,18 @@
         }
 
         /* 维度雷达图 */
+        .radar-wrapper {
+            position: relative;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            margin: 20px 0 0;
+        }
         #radarCanvas {
             display: block;
-            margin: 20px auto 0;
+            width: 100%;
+            height: auto;
+            max-width: 260px;
         }
 
         /* 建议卡片 */
@@ -419,7 +430,12 @@
             align-items: flex-end;
             height: 120px;
             padding: 0 10px;
-            gap: 4px;
+            gap: 2px;
+        }
+        @media (min-width: 768px) {
+            .timeline {
+                gap: 4px;
+            }
         }
         .timeline-bar {
             flex: 1;
@@ -446,6 +462,7 @@
             opacity: 0;
             pointer-events: none;
             transition: opacity 0.2s;
+            z-index: 10;
         }
         .timeline-bar:hover .bar-tooltip {
             opacity: 1;
@@ -467,6 +484,9 @@
             .app-container { padding: 12px; }
             .card { padding: 20px; }
             header { padding: 40px 12px 24px; }
+            .timeline-labels {
+                font-size: 0.6rem;
+            }
         }
 
         /* 减少动画偏好 */
@@ -499,7 +519,7 @@
 
     <!-- 太极动画舞台 -->
     <section class="taichi-stage" aria-label="太极能量场动画">
-        <canvas id="taichiCanvas" width="280" height="280"></canvas>
+        <canvas id="taichiCanvas"></canvas>
     </section>
 
     <!-- 主内容双栏 -->
@@ -590,7 +610,9 @@
                 <span><i class="fas fa-moon" style="color:var(--accent-yin)"></i> 阴能量 <strong id="yinPercent">50%</strong></span>
             </div>
 
-            <canvas id="radarCanvas" width="260" height="260" aria-label="能量维度雷达图"></canvas>
+            <div class="radar-wrapper">
+                <canvas id="radarCanvas" aria-label="能量维度雷达图"></canvas>
+            </div>
         </div>
 
     </div>
@@ -623,7 +645,7 @@
 
 <script>
 /* ============================================
-   太极场生命能量模型 - 核心逻辑
+   太��场生命能量模型 - 核心逻辑
    ============================================ */
 
 // ---- 维度配置 ----
@@ -637,6 +659,14 @@ const DIMENSIONS = [
     { id: 'creative', name: '创造表达', type: 'yang', weight: 1.0 },
     { id: 'nature',   name: '自然接触', type: 'yang', weight: 0.8 }
 ];
+
+// ---- 设备性能检测 ----
+function getParticleCount() {
+    const cores = navigator.hardwareConcurrency || 4;
+    if (cores <= 2) return 30;
+    if (cores <= 4) return 45;
+    return 60;
+}
 
 // ---- 获取当前值 ----
 function getValues() {
@@ -657,9 +687,7 @@ function calcEnergy(vals) {
     const yangAvg = yangW > 0 ? yangSum / yangW : 0;
     const yinAvg = yinW > 0 ? yinSum / yinW : 0;
     const total = (yangSum + yinSum) / (yangW + yinW);
-    // 平衡度：阴阳越接近，平衡越高
     const balance = 1 - Math.abs(yangAvg - yinAvg) / 100;
-    // 综合能量 = 总分 * 平衡系数
     const score = Math.round(total * (0.6 + 0.4 * balance));
     return { score, yangAvg: Math.round(yangAvg), yinAvg: Math.round(yinAvg), balance, total: Math.round(total) };
 }
@@ -673,21 +701,26 @@ function getLevel(score) {
     return { text: '气虚待养', color: '#a03030' };
 }
 
+// ---- 获取雷达图最佳尺寸 ----
+function getRadarSize() {
+    const width = window.innerWidth;
+    if (width < 480) return 180;
+    if (width < 768) return 220;
+    return 260;
+}
+
 // ---- 更新UI ----
 function updateAll() {
     const vals = getValues();
     const energy = calcEnergy(vals);
     const level = getLevel(energy.score);
 
-    // 分数
     const scoreEl = document.getElementById('energyScore');
     scoreEl.textContent = energy.score;
     scoreEl.style.color = level.color;
 
-    // 等级
     document.getElementById('energyLevel').textContent = level.text;
 
-    // 阴阳条
     const yangP = Math.round(energy.yangAvg / (energy.yangAvg + energy.yinAvg) * 100) || 50;
     const yinP = 100 - yangP;
     document.getElementById('yangBar').style.width = yangP + '%';
@@ -695,29 +728,28 @@ function updateAll() {
     document.getElementById('yangPercent').textContent = yangP + '%';
     document.getElementById('yinPercent').textContent = yinP + '%';
 
-    // 滑块数值显示
     vals.forEach(d => {
         document.getElementById(d.id + 'Val').textContent = d.value;
     });
 
-    // 雷达图
     drawRadar(vals);
 
-    // 太极动画参数
     taichiYangTarget = energy.yangAvg / 100;
     taichiYinTarget = energy.yinAvg / 100;
     taichiSpeedTarget = 0.3 + (energy.score / 100) * 1.2;
 
-    // 调养建议
     generateAdvice(vals, energy);
 
-    // 粒子颜色
     particleYangRatio = yangP / 100;
 }
 
 // ---- 雷达图 ----
 function drawRadar(vals) {
     const canvas = document.getElementById('radarCanvas');
+    const size = getRadarSize();
+    canvas.width = size;
+    canvas.height = size;
+    
     const ctx = canvas.getContext('2d');
     const w = canvas.width, h = canvas.height;
     const cx = w / 2, cy = h / 2;
@@ -726,7 +758,6 @@ function drawRadar(vals) {
 
     ctx.clearRect(0, 0, w, h);
 
-    // 背景网格
     for (let ring = 1; ring <= 4; ring++) {
         const rr = r * ring / 4;
         ctx.beginPath();
@@ -741,7 +772,6 @@ function drawRadar(vals) {
         ctx.stroke();
     }
 
-    // 轴线
     for (let i = 0; i < n; i++) {
         const angle = (Math.PI * 2 * i / n) - Math.PI / 2;
         ctx.beginPath();
@@ -751,7 +781,6 @@ function drawRadar(vals) {
         ctx.stroke();
     }
 
-    // 数据区域
     ctx.beginPath();
     vals.forEach((d, i) => {
         const angle = (Math.PI * 2 * i / n) - Math.PI / 2;
@@ -770,7 +799,6 @@ function drawRadar(vals) {
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    // 数据点
     vals.forEach((d, i) => {
         const angle = (Math.PI * 2 * i / n) - Math.PI / 2;
         const dr = r * d.value / 100;
@@ -782,14 +810,16 @@ function drawRadar(vals) {
         ctx.fill();
     });
 
-    // 标签
-    ctx.font = '11px "Noto Serif SC", serif';
+    const fontSize = size < 220 ? 9 : 11;
+    ctx.font = `${fontSize}px "Noto Serif SC", serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
+    
     vals.forEach((d, i) => {
         const angle = (Math.PI * 2 * i / n) - Math.PI / 2;
-        const lx = cx + (r + 20) * Math.cos(angle);
-        const ly = cy + (r + 20) * Math.sin(angle);
+        const labelDist = size < 220 ? r + 18 : r + 20;
+        const lx = cx + labelDist * Math.cos(angle);
+        const ly = cy + labelDist * Math.sin(angle);
         ctx.fillStyle = d.type === 'yang' ? '#d4a24e' : '#3d8b6e';
         ctx.fillText(d.name, lx, ly);
     });
@@ -804,14 +834,24 @@ let taichiYangCurrent = 0.5;
 let taichiYinCurrent = 0.5;
 let taichiSpeedCurrent = 0.8;
 
+function getTaichiSize() {
+    const width = Math.min(window.innerWidth, 1200);
+    if (width < 480) return 200;
+    if (width < 768) return 240;
+    return 280;
+}
+
 function drawTaichi(time) {
     const canvas = document.getElementById('taichiCanvas');
+    const size = getTaichiSize();
+    canvas.width = size;
+    canvas.height = size;
+    
     const ctx = canvas.getContext('2d');
     const w = canvas.width, h = canvas.height;
     const cx = w / 2, cy = h / 2;
     const R = Math.min(w, h) / 2 - 4;
 
-    // 平滑过渡
     taichiYangCurrent += (taichiYangTarget - taichiYangCurrent) * 0.03;
     taichiYinCurrent += (taichiYinTarget - taichiYinCurrent) * 0.03;
     taichiSpeedCurrent += (taichiSpeedTarget - taichiSpeedCurrent) * 0.03;
@@ -823,41 +863,34 @@ function drawTaichi(time) {
     ctx.translate(cx, cy);
     ctx.rotate(taichiAngle);
 
-    // 阳鱼（金色）
     const yangColor = `rgba(212,162,78,${0.5 + taichiYangCurrent * 0.5})`;
     const yinColor = `rgba(30,60,50,${0.5 + taichiYinCurrent * 0.5})`;
 
-    // 左半圆 - 阳
     ctx.beginPath();
     ctx.arc(0, 0, R, Math.PI / 2, -Math.PI / 2, false);
     ctx.fillStyle = yangColor;
     ctx.fill();
 
-    // 右半圆 - 阴
     ctx.beginPath();
     ctx.arc(0, 0, R, -Math.PI / 2, Math.PI / 2, false);
     ctx.fillStyle = yinColor;
     ctx.fill();
 
-    // 上小半圆 - 阳
     ctx.beginPath();
     ctx.arc(0, -R / 2, R / 2, -Math.PI / 2, Math.PI / 2, false);
     ctx.fillStyle = yangColor;
     ctx.fill();
 
-    // 下小半圆 - 阴
     ctx.beginPath();
     ctx.arc(0, R / 2, R / 2, Math.PI / 2, -Math.PI / 2, false);
     ctx.fillStyle = yinColor;
     ctx.fill();
 
-    // 阳鱼眼
     ctx.beginPath();
     ctx.arc(0, -R / 2, R / 8, 0, Math.PI * 2);
     ctx.fillStyle = yinColor;
     ctx.fill();
 
-    // 阴鱼眼
     ctx.beginPath();
     ctx.arc(0, R / 2, R / 8, 0, Math.PI * 2);
     ctx.fillStyle = yangColor;
@@ -865,7 +898,6 @@ function drawTaichi(time) {
 
     ctx.restore();
 
-    // 外圈光晕
     const glowIntensity = 0.15 + taichiYangCurrent * 0.2;
     ctx.beginPath();
     ctx.arc(cx, cy, R + 2, 0, Math.PI * 2);
@@ -873,7 +905,6 @@ function drawTaichi(time) {
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    // 能量波纹
     const waveCount = 3;
     for (let i = 0; i < waveCount; i++) {
         const phase = (time * 0.001 * taichiSpeedCurrent + i * Math.PI * 2 / waveCount) % (Math.PI * 2);
@@ -890,10 +921,11 @@ function drawTaichi(time) {
 // ---- 粒子系统 ----
 let particleYangRatio = 0.5;
 const particles = [];
-const PARTICLE_COUNT = 60;
+const PARTICLE_COUNT = getParticleCount();
 
 function initParticles() {
     const canvas = document.getElementById('particleCanvas');
+    particles.length = 0;
     for (let i = 0; i < PARTICLE_COUNT; i++) {
         particles.push({
             x: Math.random() * canvas.width,
@@ -916,7 +948,6 @@ function drawParticles() {
         p.x += p.vx;
         p.y += p.vy;
 
-        // 边界回绕
         if (p.x < 0) p.x = canvas.width;
         if (p.x > canvas.width) p.x = 0;
         if (p.y < 0) p.y = canvas.height;
@@ -952,14 +983,12 @@ function generateTimeline() {
     const startDay = now.getDay();
 
     days.forEach((day, i) => {
-        // 模拟历史数据 + 当前值
         const isToday = i === (startDay === 0 ? 6 : startDay - 1);
         let score;
         if (isToday) {
             const vals = getValues();
             score = calcEnergy(vals).score;
         } else {
-            // 用种子生成伪随机历史数据
             score = 40 + Math.floor(Math.sin(i * 2.7 + 1.3) * 20 + 20);
         }
 
@@ -968,7 +997,6 @@ function generateTimeline() {
         bar.className = 'timeline-bar';
         bar.style.height = height + 'px';
 
-        // 颜色根据分数
         if (score >= 70) bar.style.background = 'linear-gradient(to top, rgba(61,139,110,0.6), rgba(212,162,78,0.8))';
         else if (score >= 50) bar.style.background = 'linear-gradient(to top, rgba(61,139,110,0.4), rgba(212,162,78,0.5))';
         else bar.style.background = 'linear-gradient(to top, rgba(199,92,46,0.4), rgba(212,162,78,0.3))';
@@ -997,65 +1025,33 @@ function generateAdvice(vals, energy) {
     const list = document.getElementById('adviceList');
     list.innerHTML = '';
 
-    // 找出最弱的维度
     const sorted = [...vals].sort((a, b) => a.value - b.value);
     const weak = sorted.slice(0, 3);
 
-    const adviceMap = {
-        sleep:   { text: '早卧早起，与日俱兴。建议22:30前入眠，保证7-8小时深睡周期。', icon: 'fa-moon' },
-        exercise:{ text: '动则生阳。每日行步6000步以上，或习太极、八段锦以助阳气升发。', icon: 'fa-running' },
-        emotion: { text: '恬淡虚无，真气从之。可习静坐观息法，每日15分钟，安定神志。', icon: 'fa-heart' },
-        diet:    { text: '五谷为养，五果为助。饮食宜温热、少油腻，辰时进食最合胃气。', icon: 'fa-utensils' },
-        social:  { text: '人以群分，气以类聚。每周至少一次深度社交，与正念之人共处。', icon: 'fa-user-friends' },
-        spirit:  { text: '精神内守，病安从来。可读经典、习书法、听古琴，涵养心性。', icon: 'fa-book' },
-        creative:{ text: '创造乃阳气之舒发。每日留出30分钟自由创作时间，不拘形式。', icon: 'fa-palette' },
-        nature:  { text: '天地之气通于山林。每周至少两次亲近自然，接地气、纳清气。', icon: 'fa-tree' }
+    const advicePool = {
+        yang: [
+            '增加户外活动，让阳气充盈',
+            '早起晨练，激发阳气生发',
+            '多参与社交，活跃人际能量',
+            '尝试新事物，创造内在活力'
+        ],
+        yin: [
+            '增加静坐冥想，滋养阴气',
+            '规律作息，保证充足睡眠',
+            '调理饮食，增强脾胃之气',
+            '学会放松，让身心得以修复'
+        ]
     };
 
     weak.forEach(d => {
-        const advice = adviceMap[d.id];
+        const pool = advicePool[d.type];
+        const advice = pool[Math.floor(Math.random() * pool.length)];
         const li = document.createElement('li');
-        li.className = d.type === 'yin' ? 'yin-advice' : '';
-        li.innerHTML = `<i class="fas ${advice.icon}" style="color:${d.type === 'yang' ? 'var(--accent-yang)' : 'var(--accent-yin)'}"></i><span><strong>${d.name}</strong>（当前${d.value}分）：${advice.text}</span>`;
+        if (d.type === 'yin') li.classList.add('yin-advice');
+        const iconClass = d.type === 'yang' ? 'fa-fire' : 'fa-water';
+        li.innerHTML = `<i class="fas ${iconClass}"></i> <span>${advice}</span>`;
         list.appendChild(li);
     });
-
-    // 平衡建议
-    if (energy.balance < 0.7) {
-        const li = document.createElement('li');
-        li.className = 'yin-advice';
-        const direction = energy.yangAvg > energy.yinAvg ? '阳盛阴弱，宜静养以收阳' : '阴盛阳弱，宜运动以发阳';
-        li.innerHTML = `<i class="fas fa-yin-yang" style="color:var(--accent-yin)"></i><span><strong>阴阳偏颇</strong>（平衡度${Math.round(energy.balance * 100)}%）：${direction}，使阴阳归平。</span>`;
-        list.appendChild(li);
-    }
-}
-
-// ---- Toast ----
-function showToast(msg) {
-    const container = document.getElementById('toastContainer');
-    const toast = document.createElement('div');
-    toast.className = 'toast';
-    toast.textContent = msg;
-    container.appendChild(toast);
-    setTimeout(() => toast.remove(), 3000);
-}
-
-// ---- 事件绑定 ----
-function bindSliders() {
-    DIMENSIONS.forEach(d => {
-        const el = document.getElementById(d.id);
-        el.addEventListener('input', () => {
-            updateAll();
-            generateTimeline();
-        });
-    });
-}
-
-// ---- 窗口大小适配 ----
-function resizeParticleCanvas() {
-    const canvas = document.getElementById('particleCanvas');
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
 }
 
 // ---- 主动画循环 ----
@@ -1065,24 +1061,32 @@ function animate(time) {
     requestAnimationFrame(animate);
 }
 
+// ---- 事件监听 ----
+document.querySelectorAll('input[type="range"]').forEach(slider => {
+    slider.addEventListener('input', updateAll);
+});
+
+// ---- 窗口重新调整处理 ----
+window.addEventListener('resize', () => {
+    const canvas = document.getElementById('particleCanvas');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    updateAll();
+});
+
 // ---- 初始化 ----
 function init() {
-    resizeParticleCanvas();
-    window.addEventListener('resize', resizeParticleCanvas);
-
+    const pCanvas = document.getElementById('particleCanvas');
+    pCanvas.width = window.innerWidth;
+    pCanvas.height = window.innerHeight;
+    
     initParticles();
-    bindSliders();
-    updateAll();
     generateTimeline();
-
-    // 启动动画
+    updateAll();
     requestAnimationFrame(animate);
-
-    // 欢迎提示
-    setTimeout(() => showToast('调整左侧维度滑块，观测你的生命能量场'), 800);
 }
 
-document.addEventListener('DOMContentLoaded', init);
+window.addEventListener('DOMContentLoaded', init);
 </script>
 
 </body>
