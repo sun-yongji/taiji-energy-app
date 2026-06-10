@@ -594,7 +594,7 @@
             </div>
         </div>
 
-        <!-- 右栏：能量��果 -->
+        <!-- 右栏：能量结果 -->
         <div class="card result-panel" id="resultCard">
             <h2><i class="fas fa-yin-yang"></i> 能量场读数</h2>
 
@@ -687,7 +687,7 @@ function calcEnergy(vals) {
     const yangAvg = yangW > 0 ? yangSum / yangW : 0;
     const yinAvg = yinW > 0 ? yinSum / yinW : 0;
     const total = (yangSum + yinSum) / (yangW + yinW);
-    // 平衡度：阴阳越接近，平衡越高
+    // balance: yin-yang closer = higher balance
     const balance = 1 - Math.abs(yangAvg - yinAvg) / 100;
     // 综合能量 = 总分 * 平衡系数
     const score = Math.round(total * (0.6 + 0.4 * balance));
@@ -879,7 +879,7 @@ function drawTaichi(time) {
     ctx.translate(cx, cy);
     ctx.rotate(taichiAngle);
 
-    // 阳鱼（金色）
+    // yang fish (gold)
     const yangColor = `rgba(212,162,78,${0.5 + taichiYangCurrent * 0.5})`;
     const yinColor = `rgba(30,60,50,${0.5 + taichiYinCurrent * 0.5})`;
 
