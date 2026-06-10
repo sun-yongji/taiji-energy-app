@@ -5,7 +5,7 @@
 
 ## 在线体验 | Live Demo
 
-> https://sunyunji.github.io/taiji-energy-app/
+> https://sun-yongji.github.io/taiji-energy-app/
 
 ## 项目简介
 
