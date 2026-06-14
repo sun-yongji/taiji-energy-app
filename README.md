@@ -1,11 +1,14 @@
-﻿# 太极场生命能量模型 | Taiji Field Life Energy Model
+# 太极场生命能量模型 | Taiji Field Life Energy Model
 
-> 基于易宇本源数理框架的可交互生命能量评估原型  
+> 基于易宇本源数理框架的可交互生命能量评估原型
 > An interactive life energy assessment prototype based on the Yi-Yu foundational mathematical framework
+
+[![Live Demo](https://img.shields.io/badge/Demo-在线体验-blue)](https://sun-yongji.github.io/taiji-energy-app/)
+[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 
 ## 在线体验 | Live Demo
 
-> https://sun-yongji.github.io/taiji-energy-app/
+https://sun-yongji.github.io/taiji-energy-app/
 
 ## 项目简介
 
@@ -23,9 +26,9 @@ This model translates Eastern Taiji yin-yang theory into a quantifiable energy a
 
 ## 本地运行
 
-直接将 index.html 在浏览器中打开即可，无需服务器。
+直接将 `index.html` 在浏览器中打开即可，无需服务器。
 
-Simply open index.html in a browser. No server required.
+Simply open `index.html` in a browser. No server required.
 
 ## 数理框架
 
@@ -45,11 +48,24 @@ Simply open index.html in a browser. No server required.
 - [ ] 危机干预预警系统
 - [ ] 与易宇本源体系其他模块对接
 
-## 贡献
+## 关联仓库
 
-欢迎提交 Issue 和 Pull Request。同频者请联系。
+| 仓库 | 说明 |
+|------|------|
+| [yi-yu-guan](https://github.com/sun-yongji/yi-yu-guan) | 易宇观核心理论文档 |
+| [yi-yu-community](https://github.com/sun-yongji/yi-yu-community) | 易宇社区主仓库 |
+| [taichi-matrix](https://github.com/sun-yongji/taichi-matrix) | 太极矩阵 AI 工具链 |
+
+## 参与贡献
+
+欢迎提交 Issue 和 Pull Request。详见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+
+## 联系方式
+
+- 发起人：孙永吉
+- 邮箱：okskill@foxmail.com
+- 社区：[易宇社区](https://gitee.com/yi-yu-community)
 
 ## 许可证
 
-MIT License
-
+[MIT License](LICENSE)
